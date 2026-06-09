@@ -22,6 +22,11 @@ fn main() -> io::Result<()> {
 
     entries.sort();
     
+    let metadata = fs::metadata(&entries[0])?;
+    
+    let size = metadata.len();
+
+    println!("{}", size);
 
 
     Ok(())
