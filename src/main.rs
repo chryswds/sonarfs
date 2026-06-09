@@ -10,15 +10,11 @@ fn readable_size(bytes: u64) -> String {
     if bytes < base {
         format!("{bytes} B")
     } else if bytes < base.pow(2) {
-        let kb_float_value = float_value / base as f64;
-        format!("{kb_float_value:.1} KB")
+        format!("{:.1} KB", float_value / base as f64)
     } else if bytes < base.pow(3) {
-        let mb_float_value = float_value / base.pow(2) as f64;
-        format!("{mb_float_value:.1} MB")
+        format!("{:.1} MB", float_value / base.pow(2) as f64)
     } else {
-        let gb_float_value = float_value / base.pow(3) as f64;
-
-        format!("{gb_float_value:.1} GB")
+        format!("{:.1} GB", float_value / base.pow(3) as f64)
     }
 }
 
