@@ -22,6 +22,10 @@ fn main() -> io::Result<()> {
 
     entries.sort();
 
+    println!("{:?}", file_path);
+
+
+
     for file in &entries {
 
 
@@ -30,7 +34,8 @@ fn main() -> io::Result<()> {
 
         let size = metadata.len();
         
-        println!("{}", size);
+
+        println!("{:?} - size = {}", file, size);
 
     }
 
