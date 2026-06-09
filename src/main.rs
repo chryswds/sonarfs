@@ -1,3 +1,14 @@
+use std::env;
+
+
+
 fn main() {
-    println!("Hello, world!");
+
+    let args: Vec<String> = env::args().collect();
+    
+    let file_path = &args[1];
+
+    println!("File path - {file_path}");
+
+
 }
