@@ -35,9 +35,8 @@ fn main() -> io::Result<()> {
         let size: u64   = metadata.len();
         
 
-        let start: u64 = 0;
 
-        total_size = (start..=size).sum();
+        total_size += size; 
 
         println!("{:?} - size = {}", file, size);
 
