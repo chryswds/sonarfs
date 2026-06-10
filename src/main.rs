@@ -1,9 +1,10 @@
 use std::env;
 use std::io::Result;
+use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 fn readable_size(bytes: u64) -> String {
-    let base: u64 = 1024;
+    let base = 1024;
 
     let float_value = bytes as f64;
 
@@ -18,7 +19,13 @@ fn readable_size(bytes: u64) -> String {
     }
 }
 
-fn main() -> io::Result<()> {
+fn dir_size(file: &Path) -> io::Result<u64> {
+    let mut total_size: u64 = 0;
+
+    Ok(total_size)
+}
+
+fn take_dir() -> io::Result<Vec<PathBuf>> {
     let args: Vec<String> = env::args().collect();
 
     let file_path = &args[1];
@@ -31,17 +38,24 @@ fn main() -> io::Result<()> {
 
     println!("{:?}", file_path);
 
+    Ok(entries)
+}
+
+fn main() -> io::Result<()> {
+    let entries = take_dir()?;
+
+
     let mut total_size: u64 = 0;
 
-    for file in &entries {
-        let metadata = fs::metadata(file)?;
+    for entry in &entries {
+        let metadata = fs::metadata(entry)?;
 
         let size = metadata.len();
 
         let readable_size = readable_size(size);
         total_size += size;
 
-        println!("{:?} - size = {}", file, readable_size);
+        println!("{:?} - size = {}", entry, readable_size);
     }
 
     let readable_total_size = readable_size(total_size);
