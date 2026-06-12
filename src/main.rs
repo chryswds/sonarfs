@@ -20,21 +20,15 @@ fn readable_size(bytes: u64) -> String {
 
 // Returns entry size, if a folder dir_size() if a file metdata.len()
 fn entry_size(entry: &Path) -> u64 {
-    let outcome = fs::metadata(entry);
-
-    let metadata = match outcome {
+    let metadata = match fs::metadata(entry) {
         Ok(m) => m,
         Err(_) => return 0,
     };
-    let mut total_entry_size = 0;
     if metadata.is_dir() {
-        let folder_size = dir_size(entry).unwrap_or(0);
-        total_entry_size += folder_size;
+        dir_size(entry).unwrap_or(0)
     } else {
-        let size = metadata.len();
-        total_entry_size += size;
+        metadata.len()
     }
-    total_entry_size
 }
 
 // returs the size of a folder
@@ -48,9 +42,6 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     }
     Ok(total_folder_size)
 }
-
-
-
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
