@@ -48,6 +48,14 @@ fn main() -> io::Result<()> {
     let path = Path::new(&args[1]);
     println!("{}", path.display());
 
+
+    let mut display_rows: Option<usize> = None;
+    if let Some(arg) = args.get(2) && arg == "--top"{
+
+        display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
+
+    }
+
     let entries = fs::read_dir(path)?
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>>>()?;
@@ -61,11 +69,17 @@ fn main() -> io::Result<()> {
     entries_by_size.sort_by_key(|(s, _)| std::cmp::Reverse(*s));
 
     let mut total_size: u64 = 0;
-    for (size, path) in &entries_by_size {
-        println!("{} ---- {}", path.display(), readable_size(*size));
+
+
+    for (size, _path) in &entries_by_size {
         total_size += size;
+
+    }
+    for (size, path) in entries_by_size.iter().take(display_rows.unwrap_or(usize::MAX)){
+        println!("{} ---- {}", path.display(), readable_size(*size));
     }
 
-    println!("{}", readable_size(total_size));
+    println!("Total size - {}", readable_size(total_size));
+
     Ok(())
 }
