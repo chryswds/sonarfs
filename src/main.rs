@@ -3,7 +3,7 @@ use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-// Struct of a entry path and size
+// Struct of an entry path and size
 struct Entry {
     size: u64,
     path: PathBuf,
@@ -11,7 +11,7 @@ struct Entry {
 //impl fn to entry
 impl Entry {
     //size is already in the entry struct no need to give the value to readable_size()
-    fn readable_size_impl(&self) -> String {
+    fn readable_size(&self) -> String {
         readable_size(self.size)
     }
 }
@@ -61,17 +61,54 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     Ok(total_folder_size)
 }
 
+
+struct Config {
+    path: PathBuf,
+    number_rows: Option<usize>,
+}
+
+impl Config {
+    fn from_args() -> Result<Config> {
+        let args: Vec<String> = env::args().collect();
+        let path = Path::new(args.get(1).unwrap());
+
+        let mut display_rows: Option<usize> = None;
+        if let Some(arg) = args.get(2)
+            && arg == "--top"
+        {
+            display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
+        };
+
+        let config = Config {
+            path: path.to_path_buf(),
+            number_rows: display_rows,
+        };
+        Ok(config)
+
+    }
+}
+
 fn main() -> io::Result<()> {
+
+    // collects the args when running main
     let args: Vec<String> = env::args().collect();
+    // gets the index 1 on args, sets it as the path
     let path = Path::new(&args[1]);
+    // display the path
     println!("{}", path.display());
+    // will keep the amount of rows of the directory to be shown
     let mut display_rows: Option<usize> = None;
+    // if there is a second argument and it is  --top e.g /dir/etc --top 3, converts args index 3 to number and sets display_rows to this number
     if let Some(arg) = args.get(2)
         && arg == "--top"
     {
         display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
     }
+
+    // entries are a collection of entries from the path given, so individual items in this path
     let entries = entries_from_path(path)?;
+
+    // entries_size is a vec of the struct entry, iterates through the items of the struct and collects the size of each entry
     let mut entries_size: Vec<Entry> = entries
         .iter()
         .map(|path| Entry {
@@ -79,15 +116,25 @@ fn main() -> io::Result<()> {
             path: path.to_path_buf(),
         })
         .collect();
+
+
+    // sorts the entries by bigger size
     entries_size.sort_by_key(|entry| std::cmp::Reverse(entry.size));
+
+    //total_size is a sum of all sizes in the entry struct
     let total_size: u64 = entries_size.iter().map(|entry| entry.size).sum();
+
+
+    // displaying the entries, if display_rows is still set to none, meaning there was no --top tag, it sets it to the maximum usize, meaning all items in the directory will be shown
     for entry in entries_size.iter().take(display_rows.unwrap_or(usize::MAX)) {
         println!(
             "{} ---- {}",
             entry.path.display(),
-            entry.readable_size_impl(),
+            entry.readable_size(),
         );
     }
+
+    // prints total size
     println!("Total size - {}", readable_size(total_size));
     Ok(())
 }
