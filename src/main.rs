@@ -43,10 +43,18 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     Ok(total_folder_size)
 }
 
+struct Entry {
+    size: u64,
+    path: PathBuf,
+}
+
+
+
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let path = Path::new(&args[1]);
     println!("{}", path.display());
+
 
     let mut display_rows: Option<usize> = None;
     if let Some(arg) = args.get(2)
@@ -59,6 +67,10 @@ fn main() -> io::Result<()> {
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>>>()?;
 
+    let entry = Entry {
+        size: entry_size(path),
+        path: path.to_path_buf(),
+    };
 
     let mut entries_by_size: Vec<(u64, &PathBuf)> = entries.iter().map(|entry|(entry_size(entry), entry)).collect();
 
