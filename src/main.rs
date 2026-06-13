@@ -3,12 +3,15 @@ use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
+// Struct of a entry path and size
 struct Entry {
     size: u64,
     path: PathBuf,
 }
+//impl fn to entry
 impl Entry {
-    fn readable_size(&self) -> String {
+    //size is already in the entry struct no need to give the value to readable_size()
+    fn readable_size_impl(&self) -> String {
         readable_size(self.size)
     }
 }
@@ -41,11 +44,16 @@ fn entry_size(entry: &Path) -> u64 {
     }
 }
 
+// return entries from a path
+fn entries_from_path(path: &Path) -> Result<Vec<PathBuf>> {
+    fs::read_dir(path)?
+        .map(|res| res.map(|e| e.path()))
+        .collect()
+}
+
 // returns the size of a folder
 fn dir_size(dir_path: &Path) -> io::Result<u64> {
-    let entries = fs::read_dir(dir_path)?
-        .map(|res| res.map(|e| e.path()))
-        .collect::<Result<Vec<_>>>()?;
+    let entries = entries_from_path(dir_path)?;
     let mut total_folder_size: u64 = 0;
     for entry in &entries {
         total_folder_size += entry_size(entry);
@@ -63,9 +71,7 @@ fn main() -> io::Result<()> {
     {
         display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
     }
-    let entries = fs::read_dir(path)?
-        .map(|res| res.map(|e| e.path()))
-        .collect::<Result<Vec<_>>>()?;
+    let entries = entries_from_path(path)?;
     let mut entries_size: Vec<Entry> = entries
         .iter()
         .map(|path| Entry {
@@ -79,8 +85,7 @@ fn main() -> io::Result<()> {
         println!(
             "{} ---- {}",
             entry.path.display(),
-            entry.readable_size(),
-
+            entry.readable_size_impl(),
         );
     }
     println!("Total size - {}", readable_size(total_size));
