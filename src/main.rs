@@ -3,10 +3,23 @@ use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use std::cmp::Reverse;
-
+use std::fmt;
+enum EntryType {
+    Dir,
+    File,
+}
 struct Entry {
     size: u64,
     path: PathBuf,
+    entry_type: EntryType,
+}
+impl fmt::Display for EntryType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EntryType::Dir => write!(f, "dir"),
+            EntryType::File => write!(f, "file"),
+        }
+    }
 }
 impl Entry {
     //size is already in the entry struct no need to give the value to readable_size()
@@ -82,6 +95,11 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
         .map(|path| Entry {
             size: entry_size(path),
             path: path.to_path_buf(),
+            entry_type: if path.is_dir() {
+                EntryType::Dir
+            } else {
+                EntryType::File
+            }
         })
         .collect();
     entries_size.sort_by_key(|e|Reverse(e.size));
@@ -90,7 +108,7 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
 fn display_dir(entries: &[Entry],size: Option<usize>){
    let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
     for entry in entries.iter().take(size.unwrap_or(usize::MAX)) {
-        println!("{} - {}", entry.path.display(), entry.readable_size());
+        println!("{} - {} - {}", entry.path.display(), entry.readable_size(), entry.entry_type);
     };
     println!("Total size - {}", readable_size(total_size));
 }
