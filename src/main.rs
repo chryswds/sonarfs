@@ -5,7 +5,7 @@ use std::{fs, io};
 use std::cmp::Reverse;
 use std::fmt;
 enum EntryType {
-    Dir,
+    Dir { items: usize},
     File,
 }
 struct Entry {
@@ -16,8 +16,8 @@ struct Entry {
 impl fmt::Display for EntryType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EntryType::Dir => write!(f, "dir"),
-            EntryType::File => write!(f, "file"),
+            EntryType::Dir { items} => write!(f, "| Directory  - {} items inside", items),
+            EntryType::File => write!(f, "| File"),
         }
     }
 }
@@ -90,13 +90,14 @@ impl Config {
 }
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
+
     let mut entries_size: Vec<Entry> = entries
         .iter()
         .map(|path| Entry {
             size: entry_size(path),
             path: path.to_path_buf(),
             entry_type: if path.is_dir() {
-                EntryType::Dir
+                EntryType::Dir { items: entries_from_path(path).map(|v| v.len()).unwrap_or(0) }
             } else {
                 EntryType::File
             }
@@ -112,10 +113,13 @@ fn display_dir(entries: &[Entry],size: Option<usize>){
     };
     println!("Total size - {}", readable_size(total_size));
 }
+
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
     let  entries_size = collect_entries(&config.path)?;
     display_dir(entries_size.as_ref(), config.number_rows);
+
     Ok(())
 }
+
