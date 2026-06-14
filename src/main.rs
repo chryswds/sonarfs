@@ -2,6 +2,7 @@ use std::env;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use std::cmp::Reverse;
 
 // Struct of an entry path and size
 struct Entry {
@@ -88,13 +89,9 @@ impl Config {
     }
 }
 
-fn main() -> io::Result<()> {
-   let config = Config::from_args()?
-       ;
-    // entries are a collection of entries from the path given, so individual items in this path
-    let entries = entries_from_path(config.path.as_path())?;
 
-    // entries_size is a vec of the struct entry, iterates through the items of the struct and collects the size of each entry
+fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
+    let entries = entries_from_path(path)?;
     let mut entries_size: Vec<Entry> = entries
         .iter()
         .map(|path| Entry {
@@ -102,11 +99,16 @@ fn main() -> io::Result<()> {
             path: path.to_path_buf(),
         })
         .collect();
+    entries_size.sort_by_key(|e|Reverse(e.size));
+    Ok(entries_size)
+}
 
+fn main() -> io::Result<()> {
+   let config = Config::from_args()?;
 
-    // sorts the entries by bigger size
-    entries_size.sort_by_key(|entry| std::cmp::Reverse(entry.size));
+    println!("{}", config.path.display());
 
+    let  entries_size = collect_entries(&config.path)?;
     //total_size is a sum of all sizes in the entry struct
     let total_size: u64 = entries_size.iter().map(|entry| entry.size).sum();
 
