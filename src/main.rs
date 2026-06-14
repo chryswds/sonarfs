@@ -4,20 +4,16 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 use std::cmp::Reverse;
 
-// Struct of an entry path and size
 struct Entry {
     size: u64,
     path: PathBuf,
 }
-//impl fn to entry
 impl Entry {
     //size is already in the entry struct no need to give the value to readable_size()
     fn readable_size(&self) -> String {
         readable_size(self.size)
     }
 }
-
-// Translates bits sizes to readable (B, KB, MB and GB)
 fn readable_size(bytes: u64) -> String {
     let base = 1024;
     let float_value = bytes as f64;
@@ -31,8 +27,6 @@ fn readable_size(bytes: u64) -> String {
         format!("{:.1} GB", float_value / base.pow(3) as f64)
     }
 }
-
-// Returns entry size, if a folder dir_size() if a file metdata.len()
 fn entry_size(entry: &Path) -> u64 {
     let metadata = match fs::metadata(entry) {
         Ok(m) => m,
@@ -44,15 +38,11 @@ fn entry_size(entry: &Path) -> u64 {
         metadata.len()
     }
 }
-
-// return entries from a path
 fn entries_from_path(path: &Path) -> Result<Vec<PathBuf>> {
     fs::read_dir(path)?
         .map(|res| res.map(|e| e.path()))
         .collect()
 }
-
-// returns the size of a folder
 fn dir_size(dir_path: &Path) -> io::Result<u64> {
     let entries = entries_from_path(dir_path)?;
     let mut total_folder_size: u64 = 0;
@@ -61,13 +51,10 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     }
     Ok(total_folder_size)
 }
-
-
 struct Config {
     path: PathBuf,
     number_rows: Option<usize>,
 }
-
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
@@ -88,8 +75,6 @@ impl Config {
         Ok(config)
     }
 }
-
-
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
     let mut entries_size: Vec<Entry> = entries
@@ -102,27 +87,17 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     entries_size.sort_by_key(|e|Reverse(e.size));
     Ok(entries_size)
 }
-
-fn main() -> io::Result<()> {
-   let config = Config::from_args()?;
-
-    println!("{}", config.path.display());
-
-    let  entries_size = collect_entries(&config.path)?;
-    //total_size is a sum of all sizes in the entry struct
-    let total_size: u64 = entries_size.iter().map(|entry| entry.size).sum();
-
-
-    // displaying the entries, if display_rows is still set to none, meaning there was no --top tag, it sets it to the maximum usize, meaning all items in the directory will be shown
-    for entry in entries_size.iter().take(config.number_rows.unwrap_or(usize::MAX)) {
-        println!(
-            "{} ---- {}",
-            entry.path.display(),
-            entry.readable_size(),
-        );
-    }
-
-    // prints total size
+fn display_dir(entries: &[Entry],size: Option<usize>){
+   let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
+    for entry in entries.iter().take(size.unwrap_or(usize::MAX)) {
+        println!("{} - {}", entry.path.display(), entry.readable_size());
+    };
     println!("Total size - {}", readable_size(total_size));
+}
+fn main() -> io::Result<()> {
+    let config = Config::from_args()?;
+    println!("{}", config.path.display());
+    let  entries_size = collect_entries(&config.path)?;
+    display_dir(entries_size.as_ref(), config.number_rows);
     Ok(())
 }
