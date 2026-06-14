@@ -70,43 +70,29 @@ struct Config {
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
-        let path = Path::new(args.get(1).unwrap());
-
+        let path = Path::new( match args.get(1){
+            Some(path) => path,
+            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "no path provided")),
+        });
         let mut display_rows: Option<usize> = None;
         if let Some(arg) = args.get(2)
             && arg == "--top"
         {
             display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
         };
-
         let config = Config {
             path: path.to_path_buf(),
             number_rows: display_rows,
         };
         Ok(config)
-
     }
 }
 
 fn main() -> io::Result<()> {
-
-    // collects the args when running main
-    let args: Vec<String> = env::args().collect();
-    // gets the index 1 on args, sets it as the path
-    let path = Path::new(&args[1]);
-    // display the path
-    println!("{}", path.display());
-    // will keep the amount of rows of the directory to be shown
-    let mut display_rows: Option<usize> = None;
-    // if there is a second argument and it is  --top e.g /dir/etc --top 3, converts args index 3 to number and sets display_rows to this number
-    if let Some(arg) = args.get(2)
-        && arg == "--top"
-    {
-        display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
-    }
-
+   let config = Config::from_args()?
+       ;
     // entries are a collection of entries from the path given, so individual items in this path
-    let entries = entries_from_path(path)?;
+    let entries = entries_from_path(config.path.as_path())?;
 
     // entries_size is a vec of the struct entry, iterates through the items of the struct and collects the size of each entry
     let mut entries_size: Vec<Entry> = entries
@@ -126,7 +112,7 @@ fn main() -> io::Result<()> {
 
 
     // displaying the entries, if display_rows is still set to none, meaning there was no --top tag, it sets it to the maximum usize, meaning all items in the directory will be shown
-    for entry in entries_size.iter().take(display_rows.unwrap_or(usize::MAX)) {
+    for entry in entries_size.iter().take(config.number_rows.unwrap_or(usize::MAX)) {
         println!(
             "{} ---- {}",
             entry.path.display(),
