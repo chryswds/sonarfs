@@ -1,11 +1,11 @@
+use std::cmp::Reverse;
 use std::env;
+use std::fmt;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use std::cmp::Reverse;
-use std::fmt;
 enum EntryType {
-    Dir { items: usize},
+    Dir { items: usize },
     File,
 }
 struct Entry {
@@ -16,7 +16,7 @@ struct Entry {
 impl fmt::Display for EntryType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EntryType::Dir { items} => write!(f, "| Directory  - {} items inside", items),
+            EntryType::Dir { items } => write!(f, "| Directory  - {} items inside", items),
             EntryType::File => write!(f, "| File"),
         }
     }
@@ -67,32 +67,44 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
 struct Config {
     path: PathBuf,
     number_rows: Option<usize>,
-
-} 
+    depth: Option<usize>,
+}
 
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
-fn flag_value(flag: &str, args: &[String])-> Option<usize> {
-    args.iter().position(|a| a == flag).and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
-    
+
+fn depth_flag(args: &[String]) -> Option<usize> {
+    flag_value("--depth", args)
 }
 
+fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
+    args.iter()
+        .position(|a| a == flag)
+        .and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
+}
 
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
-        let path = Path::new( match args.get(1){
+        let path = Path::new(match args.get(1) {
             Some(path) => path,
-            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "no path provided")),
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "no path provided",
+                ));
+            }
         });
         let config = Config {
             path: path.to_path_buf(),
             number_rows: top_flag(&args),
+            depth: depth_flag(&args),
         };
         Ok(config)
     }
 }
+
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
 
@@ -102,29 +114,55 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
             size: entry_size(path),
             path: path.to_path_buf(),
             entry_type: if path.is_dir() {
-                EntryType::Dir { items: entries_from_path(path).map(|v| v.len()).unwrap_or(0) }
+                EntryType::Dir {
+                    items: entries_from_path(path).map(|v| v.len()).unwrap_or(0),
+                }
             } else {
                 EntryType::File
-            }
+            },
         })
         .collect();
-    entries_size.sort_by_key(|e|Reverse(e.size));
+    entries_size.sort_by_key(|e| Reverse(e.size));
     Ok(entries_size)
 }
-fn display_dir(entries: &[Entry],size: Option<usize>){
-   let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
-    for entry in entries.iter().take(size.unwrap_or(usize::MAX)) {
-        println!("{} - {} - {}", entry.path.display(), entry.readable_size(), entry.entry_type);
-    };
+
+fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result<()> {
+    let indent = "  ".repeat(level);
+
+    for entry in collect_entries(path)?.into_iter().take(top) {
+        println!(
+            "{indent}{} - {} - {}",
+            entry.path.display(),
+            entry.readable_size(),
+            entry.entry_type
+        );
+        match &entry.entry_type {
+            EntryType::Dir { .. } => {
+                if level + 1 < depth {
+                    print_tree(&entry.path, level + 1, depth, top)?;
+                }
+            }
+            EntryType::File => {}
+        }
+    }
+
+    Ok(())
+}
+fn display_dir(path: &Path, top: usize, depth: usize) -> io::Result<()> {
+    let entries = collect_entries(path)?;
+    let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
+    print_tree(path, 0, depth, top)?;
     println!("Total size - {}", readable_size(total_size));
+    Ok(())
 }
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
-    let  entries_size = collect_entries(&config.path)?;
-    display_dir(entries_size.as_ref(), config.number_rows);
+    display_dir(
+        &config.path,
+        config.number_rows.unwrap_or(usize::MAX),
+        config.depth.unwrap_or(1),
+    )?;
 
     Ok(())
 }
-
-
