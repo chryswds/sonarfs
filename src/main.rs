@@ -67,7 +67,18 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
 struct Config {
     path: PathBuf,
     number_rows: Option<usize>,
+
+} 
+
+fn top_flag(args: &[String]) -> Option<usize> {
+    flag_value("--top", args)
 }
+fn flag_value(flag: &str, args: &[String])-> Option<usize> {
+    args.iter().position(|a| a == flag).and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
+    
+}
+
+
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
@@ -75,15 +86,9 @@ impl Config {
             Some(path) => path,
             None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "no path provided")),
         });
-        let mut display_rows: Option<usize> = None;
-        if let Some(arg) = args.get(2)
-            && arg == "--top"
-        {
-            display_rows = args.get(3).and_then(|s| s.parse::<usize>().ok());
-        };
         let config = Config {
             path: path.to_path_buf(),
-            number_rows: display_rows,
+            number_rows: top_flag(&args),
         };
         Ok(config)
     }
@@ -113,7 +118,6 @@ fn display_dir(entries: &[Entry],size: Option<usize>){
     };
     println!("Total size - {}", readable_size(total_size));
 }
-
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
@@ -122,6 +126,5 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-
 
 
