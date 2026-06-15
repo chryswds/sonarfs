@@ -69,21 +69,17 @@ struct Config {
     number_rows: Option<usize>,
     depth: Option<usize>,
 }
-
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
-
 fn depth_flag(args: &[String]) -> Option<usize> {
     flag_value("--depth", args)
 }
-
 fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
     args.iter()
         .position(|a| a == flag)
         .and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
 }
-
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
@@ -127,12 +123,21 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
 }
 
 fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result<()> {
-    let indent = "  ".repeat(level);
-
-    for entry in collect_entries(path)?.into_iter().take(top) {
+    let prefix = "│  ".repeat(level);
+    let entries: Vec<_> = collect_entries(path)?.into_iter().take(top).collect();
+    for (i, entry) in entries.iter().enumerate() {
+        let connector = if i == entries.len() - 1 {
+            "└─"
+        } else {
+            "├─"
+        };
         println!(
-            "{indent}{} - {} - {}",
-            entry.path.display(),
+            "{prefix}{connector} {} - {} - {}",
+            entry
+                .path
+                .file_name()
+                .and_then(|a| a.to_str())
+                .unwrap_or("---"),
             entry.readable_size(),
             entry.entry_type
         );
@@ -148,7 +153,7 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result
 
     Ok(())
 }
-fn display_dir(path: &Path, top: usize, depth: usize) -> io::Result<()> {
+fn report(path: &Path, top: usize, depth: usize) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
     print_tree(path, 0, depth, top)?;
@@ -158,7 +163,7 @@ fn display_dir(path: &Path, top: usize, depth: usize) -> io::Result<()> {
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
-    display_dir(
+    report(
         &config.path,
         config.number_rows.unwrap_or(usize::MAX),
         config.depth.unwrap_or(1),
