@@ -1,0 +1,31 @@
+# sonarfs is a disk management written in Rust
+
+using this project as a way to learn rust 
+all code written by me no AI
+
+## Try it
+
+To try it you will need cargo and rust installed
+
+```bash
+git clone https://github.com/chryswds/sonarfs
+cd sonarfs
+cargo run -- /path/to/directory
+```
+
+by default it scans the given directory and returns its content
+
+## Flags
+
+so far i've added the flags --top and --depth
+
+`--top <N>` | Show the N heaviest items (largest files/folders) in the directory | `cargo run -- /path --top 5`
+
+
+`--depth <N>` | Show items nested N levels deep within the directory | `cargo run -- /path --depth 2`
+
+Flags can be combined:
+ 
+```bash
+cargo run -- /path/to/directory --top 5 --depth 2
+```
