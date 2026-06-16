@@ -122,11 +122,11 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     Ok(entries_size)
 }
 
-fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result<()> {
-    let prefix = "│  ".repeat(level);
+fn print_tree(path: &Path, level: usize, depth: usize, top: usize, prefix: &str) -> io::Result<()> {
     let entries: Vec<_> = collect_entries(path)?.into_iter().take(top).collect();
     for (i, entry) in entries.iter().enumerate() {
-        let connector = if i == entries.len() - 1 {
+        let last = i == entries.len() -1;
+        let connector = if last {
             "└─"
         } else {
             "├─"
@@ -145,7 +145,9 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result
         match &entry.entry_type {
             EntryType::Dir { .. } => {
                 if level + 1 < depth {
-                    print_tree(&entry.path, level + 1, depth, top)?;
+                    let child_prefix = if last { prefix.to_owned() + "   " } else { prefix.to_owned() + "│  " 
+                    };
+                    print_tree(&entry.path, level + 1, depth, top, &child_prefix)?;
                 }
             }
             EntryType::File => {}
@@ -157,7 +159,7 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result
 fn report(path: &Path, top: usize, depth: usize) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
-    print_tree(path, 0, depth, top)?;
+    print_tree(path, 0, depth, top, "")?;
     println!("Total size - {:^30}", readable_size(total_size));
     Ok(())
 }
