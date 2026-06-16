@@ -16,8 +16,8 @@ struct Entry {
 impl fmt::Display for EntryType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EntryType::Dir { items } => write!(f, "| Directory  - {} items inside", items),
-            EntryType::File => write!(f, "| File"),
+            EntryType::Dir { items } => write!(f, "Directory   {:>10} items inside", items),
+            EntryType::File => write!(f, "File"),
         }
     }
 }
@@ -131,13 +131,14 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize) -> io::Result
         } else {
             "├─"
         };
-        println!(
-            "{prefix}{connector} {} - {} - {}",
-            entry
+        let label = format!("{prefix}{connector} {}",entry
                 .path
                 .file_name()
                 .and_then(|a| a.to_str())
                 .unwrap_or("---"),
+            );
+        println!(
+            "{label:<40}  {:>10}  {:>10}",
             entry.readable_size(),
             entry.entry_type
         );
@@ -157,7 +158,7 @@ fn report(path: &Path, top: usize, depth: usize) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
     print_tree(path, 0, depth, top)?;
-    println!("Total size - {}", readable_size(total_size));
+    println!("Total size - {:^30}", readable_size(total_size));
     Ok(())
 }
 fn main() -> io::Result<()> {
