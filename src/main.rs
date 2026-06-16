@@ -68,7 +68,7 @@ struct Config {
     path: PathBuf,
     number_rows: Option<usize>,
     depth: Option<usize>,
-    min_size: Option<usize>,
+    min_size: Option<u64>,
 }
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
@@ -76,8 +76,11 @@ fn top_flag(args: &[String]) -> Option<usize> {
 fn depth_flag(args: &[String]) -> Option<usize> {
     flag_value("--depth", args)
 }
-fn min_size_flag(args: &[String]) -> Option<usize> {
-    flag_value("--min-size", args)
+fn min_size_flag(args: &[String]) -> Option<u64> {
+    args.iter()
+        .position(|a| a == "--min-size")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| parse_size(s))
 }
 fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
     args.iter()
@@ -105,7 +108,6 @@ impl Config {
         Ok(config)
     }
 }
-
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
 
@@ -127,21 +129,47 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     Ok(entries_size)
 }
 
-fn print_tree(path: &Path, level: usize, depth: usize, top: usize,min_size: u64, prefix: &str) -> io::Result<()> {
-    let entries: Vec<_> = collect_entries(path)?.into_iter().filter(|entry| entry.size >= min_size).take(top).collect();
+fn parse_size(s: &str) -> Option<u64> {
+    let s = s.to_uppercase();
+    let last_digit = s.chars().last()?;
+    let body = &s[..s.len() - 1];
+    let numeric_body = body.parse::<u64>().ok();
+    if last_digit.is_ascii_alphabetic() {
+        match last_digit {
+            'K' => numeric_body.map(|n| n * 1024),
+            'M' => numeric_body.map(|n| n * 1024_u64.pow(2)),
+            'G' => numeric_body.map(|n| n * 1024_u64.pow(3)),
+            _ => None,
+        }
+    } else {
+        s.parse::<u64>().ok()
+    }
+}
+
+fn print_tree(
+    path: &Path,
+    level: usize,
+    depth: usize,
+    top: usize,
+    min_size: u64,
+    prefix: &str,
+) -> io::Result<()> {
+    let entries: Vec<_> = collect_entries(path)?
+        .into_iter()
+        .filter(|entry| entry.size >= min_size)
+        .take(top)
+        .collect();
     for (i, entry) in entries.iter().enumerate() {
-        let last = i == entries.len() -1;
-        let connector = if last {
-            "└─"
-        } else {
-            "├─"
-        };
-        let label = format!("{prefix}{connector} {}",entry
+        let last = i == entries.len() - 1;
+        let connector = if last { "└─" } else { "├─" };
+        let label = format!(
+            "{prefix}{connector} {}",
+            entry
                 .path
                 .file_name()
                 .and_then(|a| a.to_str())
                 .unwrap_or("---"),
-            );
+        );
         println!(
             "{label:<40}  {:>10}  {:>10}",
             entry.readable_size(),
@@ -150,7 +178,10 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize,min_size: u64,
         match &entry.entry_type {
             EntryType::Dir { .. } => {
                 if level + 1 < depth {
-                    let child_prefix = if last { prefix.to_owned() + "   " } else { prefix.to_owned() + "│  " 
+                    let child_prefix = if last {
+                        prefix.to_owned() + "   "
+                    } else {
+                        prefix.to_owned() + "│  "
                     };
                     print_tree(&entry.path, level + 1, depth, top, min_size, &child_prefix)?;
                 }
@@ -161,13 +192,15 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize,min_size: u64,
 
     Ok(())
 }
+
 fn report(path: &Path, top: usize, depth: usize, min_size: u64) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
-    print_tree(path, 0, depth, top,min_size, "")?;
+    print_tree(path, 0, depth, top, min_size, "")?;
     println!("Total size - {:^30}", readable_size(total_size));
     Ok(())
 }
+
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
@@ -175,7 +208,7 @@ fn main() -> io::Result<()> {
         &config.path,
         config.number_rows.unwrap_or(usize::MAX),
         config.depth.unwrap_or(1),
-        config.min_size.unwrap_or(0) as u64,
+        config.min_size.unwrap_or(0),
     )?;
 
     Ok(())
