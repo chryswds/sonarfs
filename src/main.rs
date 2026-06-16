@@ -68,12 +68,16 @@ struct Config {
     path: PathBuf,
     number_rows: Option<usize>,
     depth: Option<usize>,
+    min_size: Option<usize>,
 }
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
 fn depth_flag(args: &[String]) -> Option<usize> {
     flag_value("--depth", args)
+}
+fn min_size_flag(args: &[String]) -> Option<usize> {
+    flag_value("--min-size", args)
 }
 fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
     args.iter()
@@ -96,6 +100,7 @@ impl Config {
             path: path.to_path_buf(),
             number_rows: top_flag(&args),
             depth: depth_flag(&args),
+            min_size: min_size_flag(&args),
         };
         Ok(config)
     }
@@ -122,8 +127,8 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     Ok(entries_size)
 }
 
-fn print_tree(path: &Path, level: usize, depth: usize, top: usize, prefix: &str) -> io::Result<()> {
-    let entries: Vec<_> = collect_entries(path)?.into_iter().take(top).collect();
+fn print_tree(path: &Path, level: usize, depth: usize, top: usize,min_size: u64, prefix: &str) -> io::Result<()> {
+    let entries: Vec<_> = collect_entries(path)?.into_iter().filter(|entry| entry.size >= min_size).take(top).collect();
     for (i, entry) in entries.iter().enumerate() {
         let last = i == entries.len() -1;
         let connector = if last {
@@ -147,7 +152,7 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize, prefix: &str)
                 if level + 1 < depth {
                     let child_prefix = if last { prefix.to_owned() + "   " } else { prefix.to_owned() + "│  " 
                     };
-                    print_tree(&entry.path, level + 1, depth, top, &child_prefix)?;
+                    print_tree(&entry.path, level + 1, depth, top, min_size, &child_prefix)?;
                 }
             }
             EntryType::File => {}
@@ -156,10 +161,10 @@ fn print_tree(path: &Path, level: usize, depth: usize, top: usize, prefix: &str)
 
     Ok(())
 }
-fn report(path: &Path, top: usize, depth: usize) -> io::Result<()> {
+fn report(path: &Path, top: usize, depth: usize, min_size: u64) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
-    print_tree(path, 0, depth, top, "")?;
+    print_tree(path, 0, depth, top,min_size, "")?;
     println!("Total size - {:^30}", readable_size(total_size));
     Ok(())
 }
@@ -170,6 +175,7 @@ fn main() -> io::Result<()> {
         &config.path,
         config.number_rows.unwrap_or(usize::MAX),
         config.depth.unwrap_or(1),
+        config.min_size.unwrap_or(0) as u64,
     )?;
 
     Ok(())
