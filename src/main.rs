@@ -32,9 +32,8 @@ struct Config {
     number_rows: Option<usize>,
     depth: Option<usize>,
     min_size: Option<u64>,
-    ext: Option<String>,
+    ext: Option<Vec<String>>,
 }
-
 impl Config {
     fn from_args() -> Result<Config> {
         let args: Vec<String> = env::args().collect();
@@ -81,13 +80,11 @@ fn entry_size(entry: &Path) -> u64 {
         metadata.len()
     }
 }
-
 fn entries_from_path(path: &Path) -> Result<Vec<PathBuf>> {
     fs::read_dir(path)?
         .map(|res| res.map(|e| e.path()))
         .collect()
 }
-
 fn dir_size(dir_path: &Path) -> io::Result<u64> {
     let entries = entries_from_path(dir_path)?;
     let mut total_folder_size: u64 = 0;
@@ -96,37 +93,29 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     }
     Ok(total_folder_size)
 }
-
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
-
 fn depth_flag(args: &[String]) -> Option<usize> {
     flag_value("--depth", args)
 }
-
 fn min_size_flag(args: &[String]) -> Option<u64> {
     args.iter()
         .position(|a| a == "--min-size")
         .and_then(|i| args.get(i + 1))
         .and_then(|s| parse_size(s))
 }
-
-fn ext_flag(args: &[String]) -> Option<String>{
+fn ext_flag(args: &[String]) ->Option<Vec<String>>{
     args.iter()
         .position(|a| a == "--ext")
         .and_then(|i| args.get(i + 1))
-        .cloned()
+        .map(|s| s.split(',').map(|p| p.to_owned()).collect())
 }
-
-
-
 fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
     args.iter()
         .position(|a| a == flag)
         .and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
 }
-
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
 
@@ -170,8 +159,9 @@ fn print_tree(
     top: usize,
     min_size: u64,
     prefix: &str,
-    ext: Option<&str>,
+    ext: Option<&[String]>,
 ) -> io::Result<()> {
+
     let entries: Vec<_> = collect_entries(path)?
         .into_iter()
         .filter(|entry| entry.size >= min_size)
@@ -179,7 +169,7 @@ fn print_tree(
             None => true,
             Some(target) => match &entry.entry_type {
                 EntryType::Dir { .. } => true,
-                EntryType::File => entry.path.extension().and_then(|s| s.to_str()) == Some(target),
+                EntryType::File => target.iter().any(|t| Some(t.as_str()) == entry.path.extension().and_then(|s| s.to_str())),
             } ,
         })
         .take(top)
@@ -217,7 +207,7 @@ fn print_tree(
 
     Ok(())
 }
-fn report(path: &Path, top: usize, depth: usize, min_size: u64, ext: Option<&str>) -> io::Result<()> {
+fn report(path: &Path, top: usize, depth: usize, min_size: u64, ext: Option<&[String]>) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
     print_tree(path, 0, depth, top, min_size, "", ext)?;
