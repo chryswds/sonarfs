@@ -13,6 +13,12 @@ struct Entry {
     path: PathBuf,
     entry_type: EntryType,
 }
+impl Entry {
+    //size is already in the entry struct no need to give the value to readable_size()
+    fn readable_size(&self) -> String {
+        readable_size(self.size)
+    }
+}
 impl fmt::Display for EntryType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -21,10 +27,34 @@ impl fmt::Display for EntryType {
         }
     }
 }
-impl Entry {
-    //size is already in the entry struct no need to give the value to readable_size()
-    fn readable_size(&self) -> String {
-        readable_size(self.size)
+struct Config {
+    path: PathBuf,
+    number_rows: Option<usize>,
+    depth: Option<usize>,
+    min_size: Option<u64>,
+    ext: Option<String>,
+}
+
+impl Config {
+    fn from_args() -> Result<Config> {
+        let args: Vec<String> = env::args().collect();
+        let path = Path::new(match args.get(1) {
+            Some(path) => path,
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "no path provided",
+                ));
+            }
+        });
+        let config = Config {
+            path: path.to_path_buf(),
+            number_rows: top_flag(&args),
+            depth: depth_flag(&args),
+            min_size: min_size_flag(&args),
+            ext: ext_flag(&args),
+        };
+        Ok(config)
     }
 }
 fn readable_size(bytes: u64) -> String {
@@ -51,11 +81,13 @@ fn entry_size(entry: &Path) -> u64 {
         metadata.len()
     }
 }
+
 fn entries_from_path(path: &Path) -> Result<Vec<PathBuf>> {
     fs::read_dir(path)?
         .map(|res| res.map(|e| e.path()))
         .collect()
 }
+
 fn dir_size(dir_path: &Path) -> io::Result<u64> {
     let entries = entries_from_path(dir_path)?;
     let mut total_folder_size: u64 = 0;
@@ -64,50 +96,37 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     }
     Ok(total_folder_size)
 }
-struct Config {
-    path: PathBuf,
-    number_rows: Option<usize>,
-    depth: Option<usize>,
-    min_size: Option<u64>,
-}
+
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
+
 fn depth_flag(args: &[String]) -> Option<usize> {
     flag_value("--depth", args)
 }
+
 fn min_size_flag(args: &[String]) -> Option<u64> {
     args.iter()
         .position(|a| a == "--min-size")
         .and_then(|i| args.get(i + 1))
         .and_then(|s| parse_size(s))
 }
+
+fn ext_flag(args: &[String]) -> Option<String>{
+    args.iter()
+        .position(|a| a == "--ext")
+        .and_then(|i| args.get(i + 1))
+        .cloned()
+}
+
+
+
 fn flag_value(flag: &str, args: &[String]) -> Option<usize> {
     args.iter()
         .position(|a| a == flag)
         .and_then(|s| args.get(s + 1).and_then(|i| i.parse::<usize>().ok()))
 }
-impl Config {
-    fn from_args() -> Result<Config> {
-        let args: Vec<String> = env::args().collect();
-        let path = Path::new(match args.get(1) {
-            Some(path) => path,
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "no path provided",
-                ));
-            }
-        });
-        let config = Config {
-            path: path.to_path_buf(),
-            number_rows: top_flag(&args),
-            depth: depth_flag(&args),
-            min_size: min_size_flag(&args),
-        };
-        Ok(config)
-    }
-}
+
 fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     let entries = entries_from_path(path)?;
 
@@ -128,7 +147,6 @@ fn collect_entries(path: &Path) -> Result<Vec<Entry>> {
     entries_size.sort_by_key(|e| Reverse(e.size));
     Ok(entries_size)
 }
-
 fn parse_size(s: &str) -> Option<u64> {
     let s = s.to_uppercase();
     let last_digit = s.chars().last()?;
@@ -145,7 +163,6 @@ fn parse_size(s: &str) -> Option<u64> {
         s.parse::<u64>().ok()
     }
 }
-
 fn print_tree(
     path: &Path,
     level: usize,
@@ -153,10 +170,18 @@ fn print_tree(
     top: usize,
     min_size: u64,
     prefix: &str,
+    ext: Option<&str>,
 ) -> io::Result<()> {
     let entries: Vec<_> = collect_entries(path)?
         .into_iter()
         .filter(|entry| entry.size >= min_size)
+        .filter(|entry| match ext {
+            None => true,
+            Some(target) => match &entry.entry_type {
+                EntryType::Dir { .. } => true,
+                EntryType::File => entry.path.extension().and_then(|s| s.to_str()) == Some(target),
+            } ,
+        })
         .take(top)
         .collect();
     for (i, entry) in entries.iter().enumerate() {
@@ -183,7 +208,7 @@ fn print_tree(
                     } else {
                         prefix.to_owned() + "│  "
                     };
-                    print_tree(&entry.path, level + 1, depth, top, min_size, &child_prefix)?;
+                    print_tree(&entry.path, level + 1, depth, top, min_size, &child_prefix, ext)?;
                 }
             }
             EntryType::File => {}
@@ -192,15 +217,13 @@ fn print_tree(
 
     Ok(())
 }
-
-fn report(path: &Path, top: usize, depth: usize, min_size: u64) -> io::Result<()> {
+fn report(path: &Path, top: usize, depth: usize, min_size: u64, ext: Option<&str>) -> io::Result<()> {
     let entries = collect_entries(path)?;
     let total_size: u64 = entries.iter().map(|entry| entry.size).sum();
-    print_tree(path, 0, depth, top, min_size, "")?;
+    print_tree(path, 0, depth, top, min_size, "", ext)?;
     println!("Total size - {:^30}", readable_size(total_size));
     Ok(())
 }
-
 fn main() -> io::Result<()> {
     let config = Config::from_args()?;
     println!("{}", config.path.display());
@@ -209,6 +232,7 @@ fn main() -> io::Result<()> {
         config.number_rows.unwrap_or(usize::MAX),
         config.depth.unwrap_or(1),
         config.min_size.unwrap_or(0),
+        config.ext.as_deref(),
     )?;
 
     Ok(())
