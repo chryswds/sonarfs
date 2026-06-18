@@ -93,6 +93,9 @@ fn dir_size(dir_path: &Path) -> io::Result<u64> {
     }
     Ok(total_folder_size)
 }
+
+
+// top flag
 fn top_flag(args: &[String]) -> Option<usize> {
     flag_value("--top", args)
 }
